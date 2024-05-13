@@ -32,6 +32,7 @@ public class AuthService {
             User user = new User();
             user.setEmail(registrationRequest.getEmail());
             user.setPassword(passwordEncoder.encode(registrationRequest.getPassword()));
+            user.setRole(registrationRequest.getRole());
             User saveUser = userRepo.save(user);
             if(saveUser != null) {
                 res.setUser(saveUser);
@@ -50,7 +51,7 @@ public class AuthService {
         ReqRes res = new ReqRes();
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(signInRequest.getEmail(), signInRequest.getPassword()));
-            var user = userRepo.findAllByUsername(signInRequest.getEmail()).orElseThrow();
+            var user = userRepo.findByEmail(signInRequest.getEmail()).orElseThrow();
             System.out.println("USER : " + user);
             var jwt = jwtUtils.generateToken(user);
             var refreshToken = jwtUtils.generateRefreshToken(new HashMap<>(), user);
@@ -60,6 +61,26 @@ public class AuthService {
             res.setStatusCode(200);
             res.setExpirationTime("24Hr");
             res.setMessage("Successfully Signed In");
+        } catch (Exception e) {
+            res.setStatusCode(500);
+            res.setMessage(e.getMessage());
+        }
+        return  res;
+    }
+
+    public  ReqRes refreshToken(ReqRes refreshTokenRequest) {
+        ReqRes res = new ReqRes();
+        try {
+            String email = jwtUtils.extractUsername(refreshTokenRequest.getToken());
+            User user = userRepo.findByEmail(email).orElseThrow();
+            if(jwtUtils.isTokenValid(refreshTokenRequest.getToken(), user)) {
+                var jwt = jwtUtils.generateToken(user);
+                res.setStatusCode(200);
+                res.setToken(jwt);
+                res.setRefreshToken(res.getRefreshToken());
+                res.setExpirationTime("24Hr");
+                res.setMessage("Successfully Refreshed Token");
+            }
         } catch (Exception e) {
             res.setStatusCode(500);
             res.setMessage(e.getMessage());
